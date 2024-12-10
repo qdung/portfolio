@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
@@ -13,7 +16,10 @@ jobs:
       NODE_VERSION: "20"
       DOCKER_IMAGE_NAME: "josephdung.dev"
       DOCKER_IMAGE_TAG: "latest"
-      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      DOCKER_TAR_FILE: "josephdung.dev.tar"
+      VPS_TARGET_PATH: "/tmp"
+      # MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      # JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
     steps:
       - name: Checkout code
@@ -22,32 +28,41 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: "${{ env.NODE_VERSION }}"
+          node-version: "20"
 
       - name: Install dependencies
         run: npm install
 
-      - name: Build the application
-        run: npm run build
+      # - name: Create or overwrite .env file
+      #   run: |
+      #     echo "MONGODB_URI=${{ env.MONGODB_URI }}" >> .env
+      #     echo "JWT_SECRET=${{ env.JWT_SECRET }}" >> .env
+      #     echo "SHOP_NAME=${{ env.SHOP_NAME }}" >> .env
 
       - name: Build Docker image
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }} .
+        run: docker build -t ${{ env.DOCKER_IMAGE_NAME }} .
 
-      - name: Log in to Docker Hub
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+      - name: Save Docker image to tar file
+        run: docker save ${{ env.DOCKER_IMAGE_NAME }} -o ${{ env.DOCKER_TAR_FILE }}
 
-      - name: Push Docker image to Docker Hub
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}
+      - name: Copy Docker image to VPS
+        uses: appleboy/scp-action@v0.1.1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          source: ${{ env.DOCKER_TAR_FILE }}
+          target: ${{ env.VPS_TARGET_PATH }}
+          overwrite: true
 
-      - name: Deploy to VPS
-        env:
-          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
-          VPS_IP: ${{ secrets.VPS_IP }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-        run: |
-          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_IP << 'EOF'
-            docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}
-            docker stop ${{ secrets.DOCKER_IMAGE_NAME }} || true
-            docker rm ${{ secrets.DOCKER_IMAGE_NAME }} || true
-            docker run -d -p 80:3000 --name ${{ secrets.DOCKER_IMAGE_NAME }} ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}
-          EOF
+      - name: Deploy Docker container on VPS
+        uses: appleboy/ssh-action@v0.1.1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          script: |
+            docker load -i ${{ env.VPS_TARGET_PATH }}
+            docker stop ${{ env.DOCKER_IMAGE_NAME }} || true
+            docker rm ${{ env.DOCKER_IMAGE_NAME }} || true
+            docker run -d -p 3001:3000 --name ${{ env.DOCKER_IMAGE_NAME }} ${{ env.DOCKER_IMAGE_NAME }}
