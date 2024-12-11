@@ -17,7 +17,7 @@ jobs:
       DOCKER_IMAGE_NAME: "josephdung.dev"
       DOCKER_IMAGE_TAG: "latest"
       DOCKER_TAR_FILE: "josephdung.dev.tar"
-      VPS_TARGET_PATH: "/tmp/josephdung.dev.tar"
+      VPS_TARGET_PATH: "/tmp"
       MONGODB_URI: ${{ secrets.MONGODB_URI }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
@@ -62,7 +62,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
-            docker load -i ${{ env.VPS_TARGET_PATH }}
+            docker load -i ${{ env.VPS_TARGET_PATH }}/${{ env.DOCKER_TAR_FILE }}
             docker stop ${{ env.DOCKER_IMAGE_NAME }} || true
             docker rm ${{ env.DOCKER_IMAGE_NAME }} || true
             docker run -d -p 3000:3000 --name ${{ env.DOCKER_IMAGE_NAME }} ${{ env.DOCKER_IMAGE_NAME }}
