@@ -18,8 +18,8 @@ jobs:
       DOCKER_IMAGE_TAG: "latest"
       DOCKER_TAR_FILE: "josephdung.dev.tar"
       VPS_TARGET_PATH: "/tmp/josephdung.dev.tar"
-      # MONGODB_URI: ${{ secrets.MONGODB_URI }}
-      # JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
     steps:
       - name: Checkout code
